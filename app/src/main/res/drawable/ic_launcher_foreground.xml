@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Outer Sweeping Rev Bar Arc (Golden Amber -> Vivid Redline) -->
+    <path
+        android:strokeColor="#FF9100"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 28,68 A 28,28 0 0,1 68,28" />
+
+    <path
+        android:strokeColor="#FF1744"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 68,28 A 28,28 0 0,1 80,52" />
+
+    <!-- Center Gear Badge Card (#0D1117 backplate with #00E5FF border) -->
+    <path
+        android:fillColor="#0D1117"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="2"
+        android:pathData="M38,38h32a6,6 0 0 1 6,6v32a6,6 0 0 1 -6,6h-32a6,6 0 0 1 -6,-6v-32a6,6 0 0 1 6,-6z" />
+
+    <!-- White "6" Gear Digit in Center -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 58,48 C 52,48 48,51 48,58 C 48,66 52,70 58,70 C 64,70 68,66 68,58 C 68,51 64,48 58,48 Z M 58,52 C 62,52 64,55 64,59 C 64,63 62,66 58,66 C 54,66 52,63 52,59 C 52,55 54,52 58,52 Z" />
+</vector>

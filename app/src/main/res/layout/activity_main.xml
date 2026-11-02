@@ -1,0 +1,617 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="2dp">
+
+            <!-- HEADER QUICK CONTROLS: THEME SWITCHER, ORIENTATION LOCK, SHIFT BEEP -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="2dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnStyleGt7"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="1dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#0D1117"
+                    android:padding="0dp"
+                    android:text="STYLE 1: GT7"
+                    android:textColor="#00E5FF"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#212634"
+                    app:strokeWidth="1dp" />
+
+                <Button
+                    android:id="@+id/btnStyleGt4"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="1dp"
+                    android:layout_marginEnd="2dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="#0D1117"
+                    android:padding="0dp"
+                    android:text="STYLE 2: GT4"
+                    android:textColor="#E6EDF3"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#212634"
+                    app:strokeWidth="1dp" />
+
+                <Button
+                    android:id="@+id/btnOrientation"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:layout_marginEnd="2dp"
+                    android:backgroundTint="#0D1117"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:text="ROTATE: AUTO ▾"
+                    android:textColor="#E6EDF3"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#212634"
+                    app:strokeWidth="1dp" />
+
+                <Button
+                    android:id="@+id/btnShiftBeep"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="68dp"
+                    android:layout_height="32dp"
+                    android:backgroundTint="#0D1117"
+                    android:padding="0dp"
+                    android:text="BEEP: ON"
+                    android:textColor="#00E676"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="16dp"
+                    app:strokeColor="#212634"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
+
+            <!-- ==================== STYLE 1: GT7 MODERN COCKPIT HUD ==================== -->
+            <LinearLayout
+                android:id="@+id/layoutGt7Hud"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
+
+                <!-- 1. PROGRESSIVE SHIFT LIGHT STRIP (9 LEDs) -->
+                <com.curtinengineering.miataobdlogger.ShiftLightStripView
+                    android:id="@+id/shiftLightStrip"
+                    android:layout_width="match_parent"
+                    android:layout_height="26dp"
+                    android:layout_marginBottom="2dp" />
+
+                <!-- 2. HONDA S2000 AP1 FLAT SEGMENTED TACHOMETER BAR -->
+                <com.curtinengineering.miataobdlogger.S2000TachView
+                    android:id="@+id/s2000Tach"
+                    android:layout_width="match_parent"
+                    android:layout_height="68dp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="0dp" />
+
+                <!-- 3. REORDERED COCKPIT DECK: [SPEED/GEAR] LEFT | [PEDALS] CENTER | [MFD] RIGHT -->
+                <LinearLayout
+                    android:id="@+id/layoutCockpitDeck"
+                    android:layout_width="match_parent"
+                    android:layout_height="250dp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginBottom="2dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <!-- CARD 1 (LEFT - WEIGHT 1.25): PRIMARY SPEED & GEAR CLUSTER -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginEnd="1dp"
+                        android:layout_weight="1.25"
+                        app:cardBackgroundColor="#0D1117"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardUseCompatPadding="false"
+                        app:strokeColor="#30363D"
+                        app:strokeWidth="1.5dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:padding="2dp">
+
+                            <!-- SPEED + GEAR CLUSTER -->
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/tvSpeed"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="sans-serif-condensed"
+                                    android:includeFontPadding="false"
+                                    android:text="0"
+                                    android:textColor="#FFFFFF"
+                                    android:textSize="115sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tvSpeedUnit"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="2dp"
+                                    android:layout_marginEnd="8dp"
+                                    android:fontFamily="sans-serif-condensed"
+                                    android:text="MPH"
+                                    android:textColor="#00E5FF"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold" />
+
+                                <!-- ACTIVE GEAR BADGE CARD -->
+                                <com.google.android.material.card.MaterialCardView
+                                    android:id="@+id/cardGear"
+                                    android:layout_width="60dp"
+                                    android:layout_height="60dp"
+                                    app:cardBackgroundColor="#0D1117"
+                                    app:cardCornerRadius="10dp"
+                                    app:cardElevation="0dp"
+                                    app:cardUseCompatPadding="false"
+                                    app:strokeColor="#00E5FF"
+                                    app:strokeWidth="1.5dp">
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
+                                        android:layout_height="match_parent"
+                                        android:gravity="center"
+                                        android:orientation="vertical">
+
+                                        <TextView
+                                            android:id="@+id/tvGearLabel"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-condensed"
+                                            android:gravity="center"
+                                            android:text="GEAR"
+                                            android:textColor="#78909C"
+                                            android:textSize="10sp"
+                                            android:textStyle="bold" />
+
+                                        <TextView
+                                            android:id="@+id/tvGear"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:fontFamily="sans-serif-condensed"
+                                            android:gravity="center"
+                                            android:includeFontPadding="false"
+                                            android:text="N"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="44sp"
+                                            android:textStyle="bold" />
+                                    </LinearLayout>
+                                </com.google.android.material.card.MaterialCardView>
+                            </LinearLayout>
+
+                            <!-- ANCHORED PROMINENT 46SP RPM READOUT -->
+                            <TextView
+                                android:id="@+id/tvRpm"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="0dp"
+                                android:fontFamily="sans-serif-condensed"
+                                android:includeFontPadding="false"
+                                android:text="854 RPM"
+                                android:textColor="#FFFFFF"
+                                android:textSize="46sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- CARD 2 (CENTER - WEIGHT 0.65): VERTICAL PEDAL INPUT BARS -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="1dp"
+                        android:layout_marginEnd="1dp"
+                        android:layout_weight="0.65"
+                        app:cardBackgroundColor="#0D1117"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardUseCompatPadding="false"
+                        app:strokeColor="#30363D"
+                        app:strokeWidth="1.5dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:baselineAligned="false"
+                            android:gravity="center"
+                            android:orientation="horizontal"
+                            android:padding="2dp">
+
+                            <!-- THROTTLE -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvThrottleBarLabel"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center"
+                                    android:text="THR\n0%"
+                                    android:textColor="#00E676"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <ProgressBar
+                                    android:id="@+id/pbThrottle"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="26dp"
+                                    android:layout_height="0dp"
+                                    android:layout_marginTop="2dp"
+                                    android:layout_weight="1"
+                                    android:max="100"
+                                    android:progress="0"
+                                    android:progressDrawable="@drawable/pb_vertical_throttle" />
+                            </LinearLayout>
+
+                            <!-- BRAKE -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvBrakeBarLabel"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center"
+                                    android:text="BRK\n0%"
+                                    android:textColor="#FF1744"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <ProgressBar
+                                    android:id="@+id/pbBrake"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="26dp"
+                                    android:layout_height="0dp"
+                                    android:layout_marginTop="2dp"
+                                    android:layout_weight="1"
+                                    android:max="100"
+                                    android:progress="0"
+                                    android:progressDrawable="@drawable/pb_vertical_brake" />
+                            </LinearLayout>
+
+                            <!-- CLUTCH -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="match_parent"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tvClutchBarLabel"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center"
+                                    android:text="CLT\n0%"
+                                    android:textColor="#00B0FF"
+                                    android:textSize="15sp"
+                                    android:textStyle="bold" />
+
+                                <ProgressBar
+                                    android:id="@+id/pbClutch"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="26dp"
+                                    android:layout_height="0dp"
+                                    android:layout_marginTop="2dp"
+                                    android:layout_weight="1"
+                                    android:max="100"
+                                    android:progress="0"
+                                    android:progressDrawable="@drawable/pb_vertical_clutch" />
+                            </LinearLayout>
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <!-- CARD 3 (RIGHT - WEIGHT 1.20): INTEGRATED MFD CAROUSEL (PAGE 1: LIVE 2D G-METER) -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_marginStart="1dp"
+                        android:layout_weight="1.20"
+                        app:cardBackgroundColor="#0D1117"
+                        app:cardCornerRadius="10dp"
+                        app:cardElevation="2dp"
+                        app:cardUseCompatPadding="false"
+                        app:strokeColor="#30363D"
+                        app:strokeWidth="1.5dp">
+
+                        <com.curtinengineering.miataobdlogger.MfdCarouselView
+                            android:id="@+id/mfdCarousel"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent" />
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </LinearLayout>
+
+
+            <!-- ==================== STYLE 2: GT4 CLASSIC A-SPEC INSTRUMENT CLUSTER ==================== -->
+            <LinearLayout
+                android:id="@+id/layoutGt4Cluster"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <com.curtinengineering.miataobdlogger.GT4ClusterView
+                    android:id="@+id/gt4ClusterView"
+                    android:layout_width="match_parent"
+                    android:layout_height="310dp"
+                    android:layout_marginBottom="2dp" />
+            </LinearLayout>
+
+
+            <!-- HUD SESSION PEAK STATUS BAR -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutSessionPeaks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="2dp"
+                app:cardBackgroundColor="#0D1117"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="2dp"
+                app:cardUseCompatPadding="false"
+                app:strokeColor="#30363D"
+                app:strokeWidth="1.5dp">
+
+                <TextView
+                    android:id="@+id/tvPeakBadges"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:padding="6dp"
+                    android:text="MAX LAT: 0.00G  |  MAX DECEL: 0.00G  |  PEAK RPM: 0"
+                    android:textColor="#FFA000"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </com.google.android.material.card.MaterialCardView>
+
+
+            <!-- ==================== SECONDARY UTILITY & DIAGNOSTICS PANEL (GONE BY DEFAULT ON MAIN HUD) ==================== -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardUtility"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                app:cardBackgroundColor="#0D1117"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="2dp"
+                app:cardUseCompatPadding="false"
+                app:strokeColor="#30363D"
+                app:strokeWidth="1.5dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="6dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:padding="4dp"
+                        android:text="UTILITY &amp; DIAGNOSTICS CONTROL"
+                        android:textColor="#ECEFF1"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:id="@+id/layoutUtilityContent"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tvStatus"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Status: Idle"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+
+                        <androidx.appcompat.widget.SwitchCompat
+                            android:id="@+id/swDemo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="44dp"
+                            android:text="Demo mode (synthetic data)" />
+
+                        <Spinner
+                            android:id="@+id/spDevices"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="44dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnConnect"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="2dp"
+                                android:layout_weight="1"
+                                android:text="Connect" />
+
+                            <Button
+                                android:id="@+id/btnLog"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="2dp"
+                                android:layout_weight="1"
+                                android:text="Start logging" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnShare"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="2dp"
+                                android:layout_weight="1"
+                                android:text="Share CSV" />
+
+                            <Button
+                                android:id="@+id/btnClear"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="2dp"
+                                android:layout_weight="1"
+                                android:text="Clear raw log" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="horizontal">
+
+                            <Button
+                                android:id="@+id/btnTare"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_marginEnd="1dp"
+                                android:layout_weight="1"
+                                android:padding="0dp"
+                                android:text="TARE / ZERO G"
+                                android:textSize="10sp" />
+
+                            <Button
+                                android:id="@+id/btnResetPeaks"
+                                android:layout_width="0dp"
+                                android:layout_height="36dp"
+                                android:layout_marginStart="1dp"
+                                android:layout_weight="1"
+                                android:padding="0dp"
+                                android:text="RESET PEAKS"
+                                android:textSize="10sp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginTop="4dp"
+                            android:layout_marginBottom="4dp"
+                            android:background="?android:attr/listDivider" />
+
+                        <TextView
+                            android:id="@+id/tvInfo"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Update rate: 0.0 Hz"
+                            android:textSize="11sp" />
+
+                        <ScrollView
+                            android:id="@+id/svRaw"
+                            android:layout_width="match_parent"
+                            android:layout_height="100dp"
+                            android:layout_marginTop="4dp"
+                            android:background="#101418"
+                            android:nestedScrollingEnabled="true">
+
+                            <TextView
+                                android:id="@+id/tvRaw"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="monospace"
+                                android:padding="4dp"
+                                android:text="Raw adapter terminal log..."
+                                android:textColor="#B8E0B8"
+                                android:textSize="10sp" />
+                        </ScrollView>
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- LEFT-EDGE BRIGHTNESS VISUAL FEEDBACK STRIP -->
+    <View
+        android:id="@+id/vBrightnessEdgeStrip"
+        android:layout_width="3dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:alpha="0"
+        android:background="#00E5FF"
+        android:elevation="24dp"
+        android:translationZ="24dp" />
+
+    <!-- PROMINENT HIGH-VISIBILITY BRIGHTNESS OVERLAY CHIP -->
+    <TextView
+        android:id="@+id/tvBrightnessOverlay"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|top"
+        android:layout_marginTop="56dp"
+        android:background="@drawable/bg_brightness_overlay"
+        android:elevation="24dp"
+        android:translationZ="24dp"
+        android:paddingStart="20dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="10dp"
+        android:text="☀ BRIGHTNESS: 100%"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:fontFamily="monospace"
+        android:textStyle="bold"
+        android:visibility="gone" />
+</FrameLayout>
