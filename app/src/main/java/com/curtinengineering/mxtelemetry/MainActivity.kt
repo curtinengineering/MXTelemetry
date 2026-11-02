@@ -129,7 +129,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
             refreshDevices()
             renderControls()
-            if (!hasBtPermission()) toast("Bluetooth permission is needed to talk to the adapter")
+            if (!hasBtPermission()) {
+                toast("Nearby Devices / Bluetooth permission is required to connect to the OBD-II adapter.")
+            }
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -464,16 +466,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     // ---------------------------------------------------------------- permissions
 
-    private fun hasBtPermission(): Boolean =
-        Build.VERSION.SDK_INT < 31 ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+    private fun hasBtPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < 31) return true
+        val connect = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        val scan = ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+        return connect && scan
+    }
 
     private fun missingPermissions(): List<String> {
         val list = mutableListOf<String>()
-        if (!hasBtPermission()) list += Manifest.permission.BLUETOOTH_CONNECT
+        if (Build.VERSION.SDK_INT >= 31) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                list += Manifest.permission.BLUETOOTH_CONNECT
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
+                list += Manifest.permission.BLUETOOTH_SCAN
+            }
+        }
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) list += Manifest.permission.POST_NOTIFICATIONS
+        ) {
+            list += Manifest.permission.POST_NOTIFICATIONS
+        }
         return list
     }
 

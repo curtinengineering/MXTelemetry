@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
@@ -174,7 +175,13 @@ class ObdBluetoothService : LifecycleService() {
                 val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00885F9B34FB")
                 val socket = device.createRfcommSocketToServiceRecord(uuid)
 
-                adapter.cancelDiscovery()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED && adapter.isDiscovering) {
+                        adapter.cancelDiscovery()
+                    }
+                } else {
+                    adapter.cancelDiscovery()
+                }
                 socket.connect()
 
                 inputStream = socket.inputStream
