@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MiataObdLogger"
+rootProject.name = "MXTelemetry"
 include(":app")

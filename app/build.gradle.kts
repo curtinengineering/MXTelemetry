@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.curtinengineering.miataobdlogger"
+    namespace = "com.curtinengineering.mxtelemetry"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.curtinengineering.miataobdlogger"
+        applicationId = "com.curtinengineering.mxtelemetry"
         minSdk = 26
         targetSdk = 37
         versionCode = 1

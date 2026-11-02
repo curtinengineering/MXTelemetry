@@ -102,14 +102,14 @@
                 android:visibility="visible">
 
                 <!-- 1. PROGRESSIVE SHIFT LIGHT STRIP (9 LEDs) -->
-                <com.curtinengineering.miataobdlogger.ShiftLightStripView
+                <com.curtinengineering.mxtelemetry.ShiftLightStripView
                     android:id="@+id/shiftLightStrip"
                     android:layout_width="match_parent"
                     android:layout_height="26dp"
                     android:layout_marginBottom="2dp" />
 
                 <!-- 2. HONDA S2000 AP1 FLAT SEGMENTED TACHOMETER BAR -->
-                <com.curtinengineering.miataobdlogger.S2000TachView
+                <com.curtinengineering.mxtelemetry.S2000TachView
                     android:id="@+id/s2000Tach"
                     android:layout_width="match_parent"
                     android:layout_height="68dp"
@@ -362,7 +362,7 @@
                         app:strokeColor="#30363D"
                         app:strokeWidth="1.5dp">
 
-                        <com.curtinengineering.miataobdlogger.MfdCarouselView
+                        <com.curtinengineering.mxtelemetry.MfdCarouselView
                             android:id="@+id/mfdCarousel"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent" />
@@ -379,7 +379,7 @@
                 android:orientation="vertical"
                 android:visibility="gone">
 
-                <com.curtinengineering.miataobdlogger.GT4ClusterView
+                <com.curtinengineering.mxtelemetry.GT4ClusterView
                     android:id="@+id/gt4ClusterView"
                     android:layout_width="match_parent"
                     android:layout_height="310dp"
