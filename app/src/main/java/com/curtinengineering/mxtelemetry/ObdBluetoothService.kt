@@ -4,11 +4,13 @@ import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -16,10 +18,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets
@@ -27,7 +30,7 @@ import java.nio.charset.StandardCharsets
 class PidScheduler(supported: Set<Int>) {
     private val fast = listOf(0x0C, 0x0D, if (0x5A in supported) 0x5A else 0x11)
     private val slow = listOf(0x05, 0x0F, 0x10, 0x04, 0x11)
-        .filter { it in supported && it !in fast }
+        .filter { (it in supported) && (it !in fast) }
     private var i = 0
 
     fun nextBatch(): List<Int> {
@@ -55,12 +58,14 @@ class ObdBluetoothService : LifecycleService() {
         private const val CHANNEL_ID = "obd_logger_channel"
 
         const val USE_RESPONSE_COUNT_DIGIT = false
-        const val USE_ATAT2 = false
+        private const val DEBUG_VERBOSE_BYTES = false
 
         fun send(context: Context, action: String, mac: String? = null) {
             val intent = Intent(context, ObdBluetoothService::class.java).apply {
                 this.action = action
-                if (mac != null) putExtra(EXTRA_MAC, mac)
+                if (mac != null) {
+                    putExtra(EXTRA_MAC, mac)
+                }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
@@ -73,6 +78,7 @@ class ObdBluetoothService : LifecycleService() {
     private var workerJob: Job? = null
     private var csvLogger: CsvLogger? = null
 
+    private var activeSocket: BluetoothSocket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
 
@@ -164,6 +170,13 @@ class ObdBluetoothService : LifecycleService() {
 
         workerJob = lifecycleScope.launch(Dispatchers.IO) {
             try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                        stopWorker("Missing BLUETOOTH_CONNECT permission")
+                        return@launch
+                    }
+                }
+
                 val adapter = getSystemService(BluetoothManager::class.java)?.adapter
                 if (adapter == null || !adapter.isEnabled) {
                     stopWorker("Bluetooth is disabled")
@@ -171,10 +184,6 @@ class ObdBluetoothService : LifecycleService() {
                 }
 
                 val device = adapter.getRemoteDevice(mac)
-                // Standard SPP UUID
-                val uuid = java.util.UUID.fromString("00001101-0000-1000-8000-00885F9B34FB")
-                val socket = device.createRfcommSocketToServiceRecord(uuid)
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (checkSelfPermission(android.Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED && adapter.isDiscovering) {
                         adapter.cancelDiscovery()
@@ -182,87 +191,204 @@ class ObdBluetoothService : LifecycleService() {
                 } else {
                     adapter.cancelDiscovery()
                 }
-                socket.connect()
 
-                inputStream = socket.inputStream
-                outputStream = socket.outputStream
+                val sppUuid = java.util.UUID.fromString("00001101-0000-1000-8000-00885F9B34FB")
+                Log.d("OBD_RAW", "Attempting socket connection to $mac...")
 
-                TelemetryHub.status.value = "Connected. Initializing vLinker..."
+                var socket: BluetoothSocket? = null
+                try {
+                    Log.d("OBD_RAW", "Trying createInsecureRfcommSocketToServiceRecord...")
+                    val s = device.createInsecureRfcommSocketToServiceRecord(sppUuid)
+                    s.connect()
+                    socket = s
+                    Log.d("OBD_RAW", "Connected via insecure RFCOMM!")
+                } catch (e1: Exception) {
+                    Log.w("OBD_RAW", "Insecure RFCOMM failed: ${e1.message}. Trying secure RFCOMM...")
+                    try {
+                        Log.d("OBD_RAW", "Trying createRfcommSocketToServiceRecord...")
+                        val s = device.createRfcommSocketToServiceRecord(sppUuid)
+                        s.connect()
+                        socket = s
+                        Log.d("OBD_RAW", "Connected via secure RFCOMM!")
+                    } catch (e2: Exception) {
+                        Log.w("OBD_RAW", "Secure RFCOMM failed: ${e2.message}. Trying reflection channel 1...")
+                        try {
+                            val method = device.javaClass.getMethod("createRfcommSocket", Int::class.javaPrimitiveType)
+                            val s = method.invoke(device, 1) as BluetoothSocket
+                            s.connect()
+                            socket = s
+                            Log.d("OBD_RAW", "Connected via reflection channel 1!")
+                        } catch (e3: Exception) {
+                            Log.e("OBD_RAW", "ERROR: All socket connection methods failed", e3)
+                            throw e3
+                        }
+                    }
+                }
+
+                val connectedSocket = socket ?: throw IllegalStateException("Socket is null after connection attempts")
+                activeSocket = connectedSocket
+                Log.d("OBD_RAW", "socket.connect() succeeded!")
+
+                inputStream = connectedSocket.inputStream
+                outputStream = connectedSocket.outputStream
+
+                TelemetryHub.status.value = "Connected. Initializing ELM327..."
                 runObdLoop()
 
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e("OBD_RAW", "ERROR: Connection failed: ${e.localizedMessage}", e)
                 stopWorker("Connection failed: ${e.localizedMessage}")
             }
         }
     }
 
-    private suspend fun runObdLoop() {
-        val input = inputStream ?: return
-        val output = outputStream ?: return
+    /**
+     * Blocking prompt-oriented command runner guaranteed to execute off the main thread (Dispatchers.IO).
+     * Accumulates characters until the ELM prompt '>' is received.
+     * Throws IOException only when the socket connection is broken (EOF or stream error).
+     */
+    private suspend fun sendCommandRaw(command: String): String = withContext(Dispatchers.IO) {
+        val out = outputStream ?: throw IOException("Output stream is null")
+        val inStream = inputStream ?: throw IOException("Input stream is null")
 
-        fun sendCommand(cmd: String, timeoutMs: Long = 1500, verbose: Boolean = false): String {
-            output.write("$cmd\r".toByteArray(StandardCharsets.US_ASCII))
-            output.flush()
+        val formatted = command.trim() + "\r"
+        Log.d("OBD_RAW", "TX >> $command")
+        out.write(formatted.toByteArray(StandardCharsets.US_ASCII))
+        out.flush()
 
-            val sb = StringBuilder()
-            val buf = ByteArray(256)
-            val start = SystemClock.elapsedRealtime()
-
-            while (SystemClock.elapsedRealtime() - start < timeoutMs) {
-                if (input.available() > 0) {
-                    val n = input.read(buf)
-                    if (n > 0) {
-                        val s = String(buf, 0, n, StandardCharsets.US_ASCII)
-                        sb.append(s)
-                        if (s.contains(">")) break
-                    }
-                } else {
-                    SystemClock.sleep(10)
-                }
+        val buffer = StringBuilder()
+        var b: Int
+        while (true) {
+            b = inStream.read()
+            if (b == -1) throw IOException("Socket EOF (-1) reached")
+            val c = b.toChar()
+            if (DEBUG_VERBOSE_BYTES) {
+                Log.d("OBD_RAW", "RX << '$c' (${c.code})")
             }
-            val res = sb.toString()
-            if (verbose) TelemetryHub.log("TX: $cmd -> RX: ${res.replace("\r", " ").replace("\n", " ")}")
-            return res
+            if (c == '>') {
+                break // Prompt received, adapter is ready for next command
+            }
+            buffer.append(c)
         }
 
-        // --- ELM327 / vLinker INIT SEQUENCE ---------------------------------------------
-        TelemetryHub.status.value = "Resetting OBD adapter..."
-        sendCommand("AT Z")
-        sendCommand("AT E0")
-        sendCommand("AT L0")
-        sendCommand("AT S0")
-        if (USE_ATAT2) {
-            sendCommand("AT AT 2")
+        val cleaned = buffer.toString()
+            .replace("\r", "")
+            .replace("\n", "")
+            .replace(" ", "")
+            .trim()
+
+        Log.d("OBD_RAW", "TX >> $command -> RX << '$cleaned'")
+        return@withContext cleaned
+    }
+
+    /**
+     * Standard proven ELM327 initialization sequence.
+     * Uses non-blocking coroutine delays and wraps non-critical setup calls in try/catch.
+     */
+    private suspend fun initializeAdapter(): Boolean {
+        Log.d("OBD_RAW", "Starting ELM327 initialization sequence...")
+        delay(500)
+
+        // 1. Reset
+        try {
+            val resZ = sendCommandRaw("ATZ")
+            Log.d("OBD_RAW", "ATZ res: '$resZ'")
+        } catch (e: IOException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("OBD_RAW", "ATZ non-fatal exception: ${e.message}")
+        }
+
+        delay(1000) // Allow microcontroller reboot
+
+        // 2. Setup formatting
+        try { sendCommandRaw("ATE0") } catch (e: IOException) { throw e } catch (_: Exception) {} // Echo off
+        try { sendCommandRaw("ATL0") } catch (e: IOException) { throw e } catch (_: Exception) {} // Linefeeds off
+        try { sendCommandRaw("ATS0") } catch (e: IOException) { throw e } catch (_: Exception) {} // Spaces off
+        try { sendCommandRaw("ATH0") } catch (e: IOException) { throw e } catch (_: Exception) {} // Headers off
+
+        // 3. Protocol selection for Mazda SkyActiv (ISO 15765-4 CAN 11-bit 500k)
+        val protocolRes = try {
+            sendCommandRaw("ATSP6")
+        } catch (e: IOException) {
+            throw e
+        } catch (_: Exception) {
+            ""
+        }
+        Log.d("OBD_RAW", "ATSP6 res: '$protocolRes'")
+
+        // 4. Test bus connection with a simple 0100 (Supported PIDs)
+        val testRes = try {
+            sendCommandRaw("0100")
+        } catch (e: IOException) {
+            throw e
+        } catch (_: Exception) {
+            ""
+        }
+        Log.d("OBD_RAW", "0100 test res: '$testRes'")
+
+        if (testRes.contains("SEARCHING") || testRes.contains("UNABLE") || testRes.contains("ERROR") || testRes.isEmpty()) {
+            Log.w("OBD_RAW", "ATSP6 bus test returned '$testRes'. Retrying with ATSP0 (auto)...")
+            try { sendCommandRaw("ATSP0") } catch (e: IOException) { throw e } catch (_: Exception) {}
+            val retryRes = try { sendCommandRaw("0100") } catch (e: IOException) { throw e } catch (_: Exception) { "" }
+            Log.d("OBD_RAW", "ATSP0 0100 test res: '$retryRes'")
+            if (retryRes.contains("UNABLE") || retryRes.contains("NODATA") || retryRes.isEmpty()) {
+                Log.w("OBD_RAW", "Ignition is off or CAN bus not answering ($retryRes)")
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private suspend fun runObdLoop() = withContext(Dispatchers.IO) {
+        val adapterReady = try {
+            initializeAdapter()
+        } catch (e: IOException) {
+            Log.e("OBD_RAW", "Bluetooth link broken during initialization", e)
+            stopWorker("Bluetooth link severed: ${e.localizedMessage}")
+            return@withContext
+        }
+
+        if (!adapterReady) {
+            TelemetryHub.status.value = "Connected to adapter (Ignition off?)"
         } else {
-            sendCommand("AT AT 1")
+            TelemetryHub.status.value = "Discovering PIDs..."
         }
-        sendCommand("AT SP 6") // ISO 15765-4 CAN (11 bit ID, 500 kbaud)
-        sendCommand("AT RV")
 
-        TelemetryHub.status.value = "Discovering PIDs..."
         val supported = mutableSetOf<Int>()
-        var base = 0x00
-        while (base <= 0x60) {
-            val raw = sendCommand("01%02X".format(base), 3000)
-            val parsed = ObdParser.parseResponse(raw)
-            val bytes = parsed[base] ?: break
-            for (bitIndex in 1..32) {
-                val byteIdx = (bitIndex - 1) / 8
-                val bitOffset = 7 - ((bitIndex - 1) % 8)
-                if (byteIdx < bytes.size && (bytes[byteIdx] and (1 shl bitOffset)) != 0) {
-                    supported.add(base + bitIndex)
+        try {
+            var base = 0x00
+            while (base <= 0x60) {
+                val raw = sendCommandRaw("01%02X".format(base))
+                val parsed = ObdParser.parseResponse(raw)
+                val bytes = parsed[base] ?: break
+                for (bitIndex in 1..32) {
+                    val byteIdx = (bitIndex - 1) / 8
+                    val bitOffset = 7 - ((bitIndex - 1) % 8)
+                    if (byteIdx < bytes.size && (bytes[byteIdx] and (1 shl bitOffset)) != 0) {
+                        supported.add(base + bitIndex)
+                    }
                 }
+                if ((base + 0x20) !in supported) break
+                base += 0x20
             }
-            if ((base + 0x20) !in supported) break
-            base += 0x20
+            try { sendCommandRaw("AT DPN") } catch (_: Exception) {}
+        } catch (e: IOException) {
+            Log.e("OBD_RAW", "Bluetooth link broken during PID discovery", e)
+            stopWorker("Bluetooth link severed: ${e.localizedMessage}")
+            return@withContext
+        } catch (e: Exception) {
+            Log.w("OBD_RAW", "PID discovery non-fatal exception: ${e.message}")
         }
-        sendCommand("AT DPN")
+
+        if (supported.isEmpty()) {
+            supported.addAll(setOf(0x0C, 0x0D, 0x11, 0x05, 0x0F, 0x10, 0x04))
+        }
         TelemetryHub.supportedPids.value = supported
 
         val scheduler = PidScheduler(supported)
         val cachedValues = HashMap<Int, List<Int>>()
-        var parseFailures = 0
         var pollCount = 0L
         var frames = 0
         var hzTimer = SystemClock.elapsedRealtime()
@@ -273,38 +399,42 @@ class ObdBluetoothService : LifecycleService() {
         while (currentCoroutineContext().isActive) {
             val verbose = pollCount < 5 || pollCount % 50 == 0L
 
-            if (parseFailures >= 10) {
-                // Fallback to single-PID requests if multi-PID fails 10 times consecutively
-                val singleBatch = listOf(0x0C, 0x0D, 0x11)
-                val rawParts = ArrayList<String>()
-                for (p in singleBatch) {
-                    val r = sendCommand("01%02X".format(p), 500, verbose)
-                    rawParts += r
-                    cachedValues.putAll(ObdParser.parseResponse(r))
-                }
-                val rawJoined = rawParts.joinToString(" | ") { it.replace("\r", "/").replace("\n", "/") }
-                val t = ObdParser.processValues(cachedValues)
-                emit(t, rawJoined)
-            } else {
+            val raw = try {
                 val batch = scheduler.nextBatch()
                 val cmdString = "01" + batch.joinToString("") { "%02X".format(it) } +
                         if (USE_RESPONSE_COUNT_DIGIT) "1" else ""
+                sendCommandRaw(cmdString)
+            } catch (e: IOException) {
+                Log.e("OBD_RAW", "Bluetooth socket IO exception during polling: ${e.localizedMessage}", e)
+                stopWorker("Bluetooth link severed: ${e.localizedMessage}")
+                break
+            } catch (e: Exception) {
+                Log.w("OBD_RAW", "Non-fatal polling exception: ${e.localizedMessage}")
+                delay(50)
+                continue
+            }
 
-                val raw = sendCommand(cmdString, 1500, verbose)
-                val parsed = ObdParser.parseResponse(raw)
+            if (raw.contains("NODATA") || raw.contains("SEARCHING") || raw.contains("UNABLE") || raw.contains("ERROR") || raw.isEmpty()) {
+                if (verbose) Log.d("OBD_RAW", "No data response from vehicle: '$raw'")
+                TelemetryHub.status.value = "No valid data (ignition on?)"
+                delay(50)
+                continue
+            }
 
-                if (parsed.isNotEmpty()) {
-                    parseFailures = 0
-                    cachedValues.putAll(parsed)
-                    val t = ObdParser.processValues(cachedValues)
-                    emit(t, raw)
-                } else {
-                    parseFailures++
-                    if (parseFailures % 20 == 1) {
-                        TelemetryHub.status.value = "No valid data (ignition on?)"
-                    }
-                    delay(50)
-                }
+            val parsed = ObdParser.parseResponse(raw)
+            if (parsed.isNotEmpty()) {
+                cachedValues.putAll(parsed)
+                val t = ObdParser.processValues(
+                    cachedValues,
+                    sensorLatG = TelemetryHub.latestSensorLatG,
+                    sensorLongG = TelemetryHub.latestSensorLongG
+                )
+                emit(t, raw)
+                if (verbose) TelemetryHub.log("TX -> RX: ${raw.replace("\r", " ").replace("\n", " ")}")
+            } else {
+                if (verbose) Log.d("OBD_RAW", "Unparsed CAN response: '$raw'")
+                TelemetryHub.status.value = "Reading data..."
+                delay(50)
             }
 
             frames++
@@ -351,12 +481,16 @@ class ObdBluetoothService : LifecycleService() {
 
         try {
             ObdParser.resetTrackers()
-            inputStream?.close()
-            outputStream?.close()
-        } catch (_: Exception) {}
-
-        inputStream = null
-        outputStream = null
+            try { inputStream?.close() } catch (_: Exception) {}
+            try { outputStream?.close() } catch (_: Exception) {}
+            try { activeSocket?.close() } catch (_: Exception) {}
+        } catch (e: Exception) {
+            Log.e("OBD_RAW", "Error closing resources in stopWorker", e)
+        } finally {
+            activeSocket = null
+            inputStream = null
+            outputStream = null
+        }
 
         TelemetryHub.mode.value = Mode.IDLE
         TelemetryHub.status.value = reason

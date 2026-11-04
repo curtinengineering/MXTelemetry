@@ -454,12 +454,28 @@ class MainActivity : AppCompatActivity(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
-        val rawX = event.values[0] / 9.80665f // Lateral G
-        val rawY = event.values[1] / 9.80665f // Longitudinal G
+        val rawX = event.values[0] / 9.80665f
+        val rawY = event.values[1] / 9.80665f
 
         // Low-pass filter for road vibration noise
         rawLatG += (rawX - rawLatG) * 0.15f
         rawLongG += (rawY - rawLongG) * 0.15f
+
+        val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            display?.rotation ?: 0
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay.rotation
+        }
+
+        val (mappedLat, mappedLong) = when (rotation) {
+            android.view.Surface.ROTATION_90 -> -rawY to rawX
+            android.view.Surface.ROTATION_270 -> rawY to -rawX
+            else -> rawX to rawY
+        }
+
+        TelemetryHub.latestSensorLatG = mappedLat - latGOffset
+        TelemetryHub.latestSensorLongG = mappedLong - longGOffset
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}

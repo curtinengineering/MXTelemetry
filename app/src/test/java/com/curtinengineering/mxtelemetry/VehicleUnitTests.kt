@@ -12,6 +12,33 @@ import java.io.InputStreamReader
 class VehicleUnitTests {
 
     @Test
+    fun testIsoTpMultiFrameParsing() {
+        // Multi-frame response: 00A0:410C0C6E0D001:11210F41000000
+        val raw1 = "00A0:410C0C6E0D001:11210F41000000"
+        val parsed1 = ObdParser.parseResponse(raw1)
+        assertNotNull(parsed1[ObdParser.PID_RPM])
+        assertNotNull(parsed1[ObdParser.PID_SPEED])
+        assertNotNull(parsed1[ObdParser.PID_THROTTLE])
+        assertNotNull(parsed1[ObdParser.PID_INTAKE_TEMP])
+
+        val rpmBytes = parsed1[ObdParser.PID_RPM]!!
+        val rpm = (rpmBytes[0] * 256 + rpmBytes[1]) / 4f
+        assertEquals(795.5f, rpm, 0.1f)
+
+        assertEquals(0, parsed1[ObdParser.PID_SPEED]!![0])
+        assertEquals(0x21, parsed1[ObdParser.PID_THROTTLE]!![0])
+        assertEquals(0x41, parsed1[ObdParser.PID_INTAKE_TEMP]!![0])
+
+        // Multi-frame response 2: 00B0:410C0C780D001:11211000FE0000
+        val raw2 = "00B0:410C0C780D001:11211000FE0000"
+        val parsed2 = ObdParser.parseResponse(raw2)
+        assertNotNull(parsed2[ObdParser.PID_MAF])
+        val mafBytes = parsed2[ObdParser.PID_MAF]!!
+        val maf = (mafBytes[0] * 256 + mafBytes[1]) / 100f
+        assertEquals(2.54f, maf, 0.01f) // 0x00FE = 254 -> 2.54 g/s
+    }
+
+    @Test
     fun testGearCalculatorMatch() {
         // (1959 RPM, 30 MPH, 20% pedal) -> 4th gear
         assertEquals(4, GearCalculator.match(1959f, 30f, 20f))
@@ -77,10 +104,10 @@ class VehicleUnitTests {
 
         assertNotNull(target)
         assertEquals(3, target?.gear)
-        // 40 MPH * 83.2 (3rd gear ratio) = 3328 RPM
-        assertEquals(3328f, target?.targetRpm ?: 0f, 1.0f)
+        // 40 MPH * 83.4 (3rd gear ratio) = 3336 RPM
+        assertEquals(3336f, target?.targetRpm ?: 0f, 1.0f)
 
-        // At 85 MPH after 4th gear: target = 85 * 83.2 = 7072 RPM (> 6800 DOWNSHIFT_MAX_RPM)
+        // At 85 MPH after 4th gear: target = 85 * 83.4 = 7089 RPM (> 6800 DOWNSHIFT_MAX_RPM)
         val highSpeedTracker = RevMatchTracker()
         highSpeedTracker.update(now, 88f, true, 4)
         highSpeedTracker.update(now + 100, 87f, true, 4)
@@ -144,7 +171,7 @@ class VehicleUnitTests {
         assertNotNull("revMatchTargetGear should be set", lastSample.revMatchTargetGear)
         assertEquals(3, lastSample.revMatchTargetGear)
 
-        val expectedTargetRpm = 25.3f * 83.2f // ~2104.96 RPM
+        val expectedTargetRpm = 25.3f * 83.4f // ~2110.02 RPM
         assertNotNull("targetDownshiftRpm should be set", lastSample.targetDownshiftRpm)
         assertEquals(expectedTargetRpm, lastSample.targetDownshiftRpm ?: 0f, 2.0f)
     }

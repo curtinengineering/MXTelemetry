@@ -9,8 +9,7 @@ import java.time.format.DateTimeFormatter
 enum class Mode { IDLE, DEMO, BLUETOOTH }
 
 /**
- * App-wide state the service writes and the UI reads. In Phase 2 the dynamics engine and the HUD
- * canvas view can collect [telemetry] from here without knowing whether the data is real or demo.
+ * App-wide state the service writes and the UI reads.
  */
 object TelemetryHub {
     val telemetry = MutableStateFlow<TelemetryData?>(null)
@@ -20,6 +19,9 @@ object TelemetryHub {
     val pollHz = MutableStateFlow(0f)
     val logging = MutableStateFlow(false)
     val logPath = MutableStateFlow<String?>(null)
+
+    @Volatile var latestSensorLatG: Float = 0f
+    @Volatile var latestSensorLongG: Float = 0f
 
     private const val MAX_RAW_LINES = 400
     private val _raw = MutableStateFlow<List<String>>(emptyList())

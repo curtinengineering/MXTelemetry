@@ -48,6 +48,15 @@ object CarClusterRenderer {
     private var peakHoldTimeMs = 0L
 
     // Pre-allocated Paints & Paths
+    private val card1Rect = RectF()
+    private val gearRect = RectF()
+    private val stallRect = RectF()
+    private val card2Rect = RectF()
+    private val trackRect = RectF()
+    private val fillRect = RectF()
+    private val card3Rect = RectF()
+    private val peakRect = RectF()
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.BLACK
         style = Paint.Style.FILL
@@ -410,7 +419,7 @@ object CarClusterRenderer {
         // CARD 1 (LEFT - 40% WIDTH): PRIMARY SPEED + GEAR + RPM
         val c1L = pad
         val c1R = c1L + col1Width
-        val card1Rect = RectF(c1L, deckTop, c1R, deckBottom)
+        card1Rect.set(c1L, deckTop, c1R, deckBottom)
         canvas.drawRoundRect(card1Rect, 12f, 12f, cardBgPaint)
         canvas.drawRoundRect(card1Rect, 12f, 12f, cardBorderPaint)
 
@@ -429,7 +438,7 @@ object CarClusterRenderer {
         val gearBoxSize = deckHeight * 0.38f
         val gearL = c1R - gearBoxSize - 12f
         val gearT = cy1 - gearBoxSize * 0.82f
-        val gearRect = RectF(gearL, gearT, gearL + gearBoxSize, gearT + gearBoxSize)
+        gearRect.set(gearL, gearT, gearL + gearBoxSize, gearT + gearBoxSize)
 
         // Speed digits dynamically centered in the area between card's left edge and gear badge's left edge
         val speedAreaLeft = c1L + 12f
@@ -461,7 +470,7 @@ object CarClusterRenderer {
 
         // RPM Readout or Anti-Stall Warning Banner
         if (isStallRisk) {
-            val stallRect = RectF(c1L + 8f, deckTop + deckHeight * 0.72f, c1R - 8f, deckBottom - 8f)
+            stallRect.set(c1L + 8f, deckTop + deckHeight * 0.72f, c1R - 8f, deckBottom - 8f)
             if (animFlashState) {
                 canvas.drawRoundRect(stallRect, 8f, 8f, stallWarningBgPaint)
             }
@@ -476,7 +485,7 @@ object CarClusterRenderer {
         // CARD 2 (CENTER - 24% WIDTH): PERMANENT 3-PEDAL UNIFIED CLUSTER (THR, DEC, DRV)
         val c2L = c1R + pad
         val c2R = c2L + col2Width
-        val card2Rect = RectF(c2L, deckTop, c2R, deckBottom)
+        card2Rect.set(c2L, deckTop, c2R, deckBottom)
         canvas.drawRoundRect(card2Rect, 12f, 12f, cardBgPaint)
         canvas.drawRoundRect(card2Rect, 12f, 12f, cardBorderPaint)
 
@@ -511,13 +520,13 @@ object CarClusterRenderer {
             canvas.drawText(valText, slotCenterX, deckTop + deckHeight * 0.18f, pedalLabelPaint)
 
             // Empty Track
-            val trackRect = RectF(bL, barTop, bR, barBottom)
+            trackRect.set(bL, barTop, bR, barBottom)
             canvas.drawRoundRect(trackRect, 6f, 6f, pedalBarBgPaint)
 
             // Fill
             val fillHeight = (pct.coerceIn(0f, 100f) / 100f) * barMaxHeight
             if (fillHeight > 0f) {
-                val fillRect = RectF(bL, barBottom - fillHeight, bR, barBottom)
+                fillRect.set(bL, barBottom - fillHeight, bR, barBottom)
                 pedalBarFillPaint.color = color
                 canvas.drawRoundRect(fillRect, 6f, 6f, pedalBarFillPaint)
             }
@@ -527,7 +536,7 @@ object CarClusterRenderer {
         // CARD 3 (RIGHT - 36% WIDTH): MULTI-FUNCTION DISPLAY (MFD BOX)
         val c3L = c2R + pad
         val c3R = w - pad // Fitted cleanly inside screen width bounds
-        val card3Rect = RectF(c3L, deckTop, c3R, deckBottom)
+        card3Rect.set(c3L, deckTop, c3R, deckBottom)
         canvas.drawRoundRect(card3Rect, 12f, 12f, cardBgPaint)
         canvas.drawRoundRect(card3Rect, 12f, 12f, cardBorderPaint)
 
@@ -614,7 +623,7 @@ object CarClusterRenderer {
         // --- 3. BOTTOM FOOTER SESSION PEAK STATUS BAR (Shifted up by 4dp) ---
         val peakTop = deckBottom + 2f
         val peakBottom = h - pad - 4f
-        val peakRect = RectF(pad, peakTop, w - pad, peakBottom)
+        peakRect.set(pad, peakTop, w - pad, peakBottom)
         canvas.drawRoundRect(peakRect, 8f, 8f, cardBgPaint)
         canvas.drawRoundRect(peakRect, 8f, 8f, cardBorderPaint)
 

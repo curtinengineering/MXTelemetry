@@ -57,6 +57,7 @@ data class TelemetryData(
     // Universal dynamic brake percentage (0..100%)
     val dynamicBrakePct: Float
         get() {
+            if (estimatedBrakePct > 0f) return estimatedBrakePct
             val ped = pedalPct ?: throttlePlatePct ?: 0f
             return if (ped <= 2.0f && longitudinalG < -0.10f) {
                 (((-longitudinalG - 0.10f) / 0.75f) * 100f).coerceIn(0f, 100f)
@@ -98,6 +99,7 @@ object ObdParser {
     private var prevSpeedMph = 0f
     private var lastSpeedKmh = 0f
     private var lastTimestampMs = 0L
+    private var brakeHoldActive = false
 
     val gearTracker = GearTracker()
     val stallDetector = StallDetector()
@@ -107,19 +109,30 @@ object ObdParser {
         prevSpeedMph = 0f
         lastSpeedKmh = 0f
         lastTimestampMs = 0L
+        brakeHoldActive = false
         gearTracker.reset()
         stallDetector.reset()
         revMatchTracker.reset()
     }
 
     fun parseResponse(raw: String): Map<Int, List<Int>> {
-        val clean = raw.replace("\r", "").replace("\n", "").replace(" ", "").uppercase(Locale.US)
-        if (!clean.startsWith("41")) return emptyMap()
+        var clean = raw.replace("\r", "").replace("\n", "").replace(" ", "").uppercase(Locale.US)
+
+        // Sanitize multi-frame ISO-TP CAN headers (e.g. 00A0:410C0C6E0D001:11210F41000000 -> 410C0C6E0D0011210F41000000)
+        clean = clean.replace(Regex("^[0-9A-FA-F]{3}:?"), "")
+        clean = clean.replace(Regex("\\d:"), "")
+
+        val idx = clean.indexOf("41")
+        if (idx == -1) return emptyMap()
 
         val bytes = mutableListOf<Int>()
-        var i = 2
+        var i = idx + 2
         while (i + 1 < clean.length) {
-            val b = clean.substring(i, i + 2).toIntOrNull(16) ?: break
+            val b = try {
+                clean.substring(i, i + 2).toInt(16)
+            } catch (e: NumberFormatException) {
+                break
+            }
             bytes.add(b)
             i += 2
         }
@@ -144,7 +157,13 @@ object ObdParser {
 
         val displayGearInt = gearTracker.update(nowMs, rpm, speedMph, pedalPct)
         val calcGearStr = displayGearInt?.toString() ?: "N"
-        val isDecoupled = speedMph > 5.0f && displayGearInt == null
+
+        // Virtual Clutch: 100% when rolling in neutral or revving >= 1200 RPM while stopped.
+        // When stopped (speedMph <= 1.0) and rpm < 1200, allow clutch state to stay 0%.
+        val isDecoupled = when {
+            speedMph > 1.0f -> displayGearInt == null
+            else -> displayGearInt == null && rpm >= 1200f
+        }
 
         val isStallAlert = stallDetector.update(rpm, speedMph, pedalPct, displayGearInt)
 
@@ -174,12 +193,12 @@ object ObdParser {
     ): TelemetryData {
         val nowMs = SystemClock.elapsedRealtime()
 
-        val rpm = values[PID_RPM]?.let { (it[0] * 256 + it[1]) / 4f } ?: 0f
-        val speedKmh = values[PID_SPEED]?.get(0)?.toFloat() ?: 0f
+        val rpm = values[PID_RPM]?.let { if (it.size >= 2) (it[0] * 256 + it[1]) / 4f else null } ?: 0f
+        val speedKmh = values[PID_SPEED]?.getOrNull(0)?.toFloat() ?: 0f
         val speedMph = speedKmh / 1.609344f
 
-        val pedal5A = values[PID_PEDAL_5A]?.let { it[0] * 100f / 255f }
-        val throttlePlate = values[PID_THROTTLE]?.let { it[0] * 100f / 255f }
+        val pedal5A = values[PID_PEDAL_5A]?.getOrNull(0)?.let { it * 100f / 255f }
+        val throttlePlate = values[PID_THROTTLE]?.getOrNull(0)?.let { it * 100f / 255f }
         val pedalPctVal = pedal5A ?: throttlePlate ?: 0f
 
         val dtSec = if (lastTimestampMs > 0L && nowMs > lastTimestampMs) {
@@ -194,7 +213,7 @@ object ObdParser {
         lastSpeedKmh = speedKmh
         lastTimestampMs = nowMs
 
-        val maf = values[PID_MAF]?.let { (it[0] * 256 + it[1]) / 100f }
+        val maf = values[PID_MAF]?.let { if (it.size >= 2) (it[0] * 256 + it[1]) / 100f else null }
 
         val instantMpg = if (maf != null && maf > 0.1f && speedMph > 2f) {
             ((speedMph * 7.107f) / maf).coerceIn(0f, 99.9f)
@@ -203,9 +222,21 @@ object ObdParser {
         }
 
         val fuelGph = if (maf != null) (maf / 3.027f).coerceIn(0.1f, 50f) else 0f
-        val estimatedBrake = if (pedalPctVal <= 2.0f && calcLongG < -0.10f) {
+
+        val rawBrake = if (pedalPctVal <= 2.0f && calcLongG < -0.10f) {
             (((-calcLongG - 0.10f) / 0.75f) * 100f).coerceIn(0f, 100f)
         } else 0f
+
+        // Virtual Brake Hold: Hold 25% when coming to a stop until throttle > 2% or speed > 1 mph
+        if (speedMph <= 1.0f) {
+            if (rawBrake > 0f || brakeHoldActive) {
+                brakeHoldActive = pedalPctVal <= 2.0f
+            }
+        } else {
+            brakeHoldActive = false
+        }
+
+        val estimatedBrake = if (brakeHoldActive) 25f else rawBrake
 
         val rawSample = TelemetryData(
             timestampMs = System.currentTimeMillis(),
@@ -215,10 +246,10 @@ object ObdParser {
             pedalPct = pedalPctVal,
             pedalDPct = pedal5A,
             pedalEPct = null,
-            engineLoadPct = values[PID_ENGINE_LOAD]?.get(0)?.let { it * 100f / 255f },
+            engineLoadPct = values[PID_ENGINE_LOAD]?.getOrNull(0)?.let { it * 100f / 255f },
             mafGs = maf,
-            coolantTempC = values[PID_COOLANT_TEMP]?.get(0)?.let { (it - 40).toFloat() },
-            intakeTempC = values[PID_INTAKE_TEMP]?.get(0)?.let { (it - 40).toFloat() },
+            coolantTempC = values[PID_COOLANT_TEMP]?.getOrNull(0)?.let { (it - 40).toFloat() },
+            intakeTempC = values[PID_INTAKE_TEMP]?.getOrNull(0)?.let { (it - 40).toFloat() },
             oilTempC = null,
             estimatedBrakePct = estimatedBrake,
             lateralG = sensorLatG,
