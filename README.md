@@ -1,5 +1,3 @@
-Here is the complete, production-ready `README.md` with clean GitHub-compatible KaTeX math, native Mermaid diagrams, architecture flow, calibration specs, and sideloading steps:
-
 ```markdown
 # MXTelemetry
 
